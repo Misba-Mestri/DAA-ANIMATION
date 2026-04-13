@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topological Sort — Kahn's vs DFS</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#f5f6f8; --surface:#fff; --border:#e2e5ec; --border2:#cdd1db;
+  --text:#1a1d27; --text2:#5a5f72; --text3:#9098b0;
+  --blue:#2563eb; --blue-bg:#eff4ff; --blue-br:#bfcffd;
+  --purple:#7c3aed; --purple-bg:#f5f3ff; --purple-br:#ddd6fe;
+  --green:#16a34a; --green-bg:#f0fdf4; --green-br:#bbf7d0;
+  --amber:#b45309; --amber-bg:#fffbeb; --amber-br:#fde68a;
+  --red:#dc2626; --red-bg:#fef2f2; --red-br:#fecaca;
+  --teal:#0891b2; --teal-bg:#ecfeff; --teal-br:#a5f3fc;
+  --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif; --r:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.5}
+.wrap{max-width:1060px;margin:0 auto;padding:2rem 1.25rem 4rem}
+
+/* HEADER */
+.hdr h1{font-size:1.5rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:4px}
+.hdr p{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;margin-bottom:1.5rem}
+.chip{font-family:var(--mono);font-size:10px;font-weight:500;padding:2px 9px;border-radius:20px;border:1px solid;display:inline-block}
+.chip-blue{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-br)}
+.chip-purple{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-br)}
+.chip-green{background:var(--green-bg);color:var(--green);border-color:var(--green-br)}
+.chip-red{background:var(--red-bg);color:var(--red);border-color:var(--red-br)}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem}
+.ctitle{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);
+  margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.ctitle::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* LAYOUT */
+.g2{display:grid;grid-template-columns:290px 1fr;gap:12px}
+.g2b{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+@media(max-width:740px){.g2,.g2b{grid-template-columns:1fr}}
+
+/* ALGO TOGGLE */
+.algo-toggle{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
+.atab{display:flex;flex-direction:column;align-items:center;padding:9px 6px;border-radius:8px;
+  border:1.5px solid var(--border2);background:var(--bg);cursor:pointer;transition:all .15s;gap:2px}
+.atab:hover{border-color:var(--border2);background:var(--surface)}
+.atab.sel-kahn{border-color:var(--blue);background:var(--blue-bg)}
+.atab.sel-dfs{border-color:var(--purple);background:var(--purple-bg)}
+.atab-name{font-family:var(--mono);font-size:11px;font-weight:600}
+.atab.sel-kahn .atab-name{color:var(--blue)}
+.atab.sel-dfs .atab-name{color:var(--purple)}
+.atab-desc{font-size:9px;color:var(--text3);font-family:var(--mono)}
+
+/* INPUTS */
+label{font-size:11px;color:var(--text2);display:block;margin-bottom:3px;font-family:var(--mono)}
+input,textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;
+  padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:11.5px;outline:none;
+  transition:border-color .15s;resize:none}
+input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+.irow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+
+/* BUTTONS */
+.btn{font-family:var(--mono);font-size:11px;font-weight:500;padding:5px 12px;border-radius:7px;
+  border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .12s}
+.btn:hover{background:var(--bg);color:var(--text);border-color:var(--blue)}
+.btn:active{transform:scale(.97)}
+.btn-blue{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-blue:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+.btn-purple{background:var(--purple);color:#fff;border-color:var(--purple)}
+.btn-purple:hover{background:#6d28d9;color:#fff;border-color:#6d28d9}
+.btn-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.btn-sm{padding:3px 9px;font-size:10px}
+
+/* CANVAS */
+canvas{width:100%;display:block;border-radius:8px;background:var(--bg);border:1px solid var(--border)}
+
+/* CONTROLS */
+.ctrl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-top:10px}
+.sctr{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text3)}
+
+/* METRICS */
+.mets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.met{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:.75rem 1rem;text-align:center}
+.met.hi-b{border-color:var(--blue-br);background:var(--blue-bg)}
+.met.hi-p{border-color:var(--purple-br);background:var(--purple-bg)}
+.mval{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text)}
+.mlbl{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+
+/* LOG */
+.slog{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.slog::-webkit-scrollbar{width:3px}
+.slog::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.sitem{border-left:2px solid var(--border);padding:4px 9px;border-radius:0 5px 5px 0;
+  font-family:var(--mono);font-size:10.5px;color:var(--text2);transition:all .15s;line-height:1.5}
+.sitem .sn{color:var(--text3);font-size:10px}
+.sitem.act-b{border-left-color:var(--blue);background:var(--blue-bg);color:var(--text)}
+.sitem.act-p{border-left-color:var(--purple);background:var(--purple-bg);color:var(--text)}
+.sitem.done{border-left-color:var(--green-br);color:var(--text3)}
+
+/* QUEUE/STACK PILLS */
+.pill-area{min-height:30px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.pill{font-family:var(--mono);font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;animation:pop .15s ease}
+.pill-b{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-br)}
+.pill-p{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-br)}
+@keyframes pop{from{transform:scale(.75);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* INDEG / VISITED */
+.idwrap{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.idpill{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:5px;
+  border:1px solid var(--border);background:var(--bg);color:var(--text2);transition:all .2s}
+.idpill.zero{background:var(--green-bg);color:var(--green);border-color:var(--green-br)}
+.idpill.vis{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-br)}
+
+/* LEGEND */
+.leg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.li{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;color:var(--text2)}
+.ld{width:9px;height:9px;border-radius:50%;border:1.5px solid}
+
+/* RESULT */
+.rcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:1rem;margin-top:12px;display:none}
+.rnodes{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:8px}
+.rnode{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;font-weight:600;animation:pop .25s ease}
+.rnode-b{background:var(--blue-bg);color:var(--blue);border:1.5px solid var(--blue-br)}
+.rnode-p{background:var(--purple-bg);color:var(--purple);border:1.5px solid var(--purple-br)}
+.rnode-r{background:var(--red-bg);color:var(--red);border:1.5px solid var(--red-br)}
+.rarr{color:var(--text3);font-size:14px}
+.rmsg{margin-top:8px;font-size:11px;font-family:var(--mono);line-height:1.6}
+.rmsg-b{color:var(--blue)} .rmsg-p{color:var(--purple)} .rmsg-r{color:var(--red)}
+
+/* COMPARISON ANALYSIS */
+.cmpgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+@media(max-width:600px){.cmpgrid{grid-template-columns:1fr}}
+.cmpc{padding:12px 14px;border-radius:8px;border:1px solid}
+.cmpc h4{font-family:var(--mono);font-size:11px;font-weight:600;margin-bottom:6px}
+.cmpc p{font-size:11px;font-family:var(--mono);line-height:1.6;color:var(--text2)}
+.cmpc-b{background:var(--blue-bg);border-color:var(--blue-br)} .cmpc-b h4{color:var(--blue)}
+.cmpc-p{background:var(--purple-bg);border-color:var(--purple-br)} .cmpc-p h4{color:var(--purple)}
+.cnote{margin-top:10px;font-size:11px;font-family:var(--mono);line-height:1.7;color:var(--text2);
+  padding:9px 12px;background:var(--green-bg);border-radius:7px;border-left:2px solid var(--green)}
+.cnote strong{color:var(--green)}
+
+/* CHART */
+.chbox{position:relative;height:260px;margin-top:10px}
+.legrow{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:8px}
+.legitem{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;color:var(--text2)}
+.legsq{width:22px;height:3px;border-radius:2px;display:inline-block}
+.legdot{width:10px;height:10px;border-radius:2px;display:inline-block;border:1.5px solid}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* COUNTER FLASH */
+@keyframes flash-blue{0%{background:var(--blue-bg);border-color:var(--blue);}100%{background:var(--surface);border-color:var(--border);}}
+@keyframes flash-purple{0%{background:var(--purple-bg);border-color:var(--purple);}100%{background:var(--surface);border-color:var(--border);}}
+.met.hi-b.counter-flash{animation:flash-blue .35s ease-out;}
+.met.hi-p.counter-flash{animation:flash-purple .35s ease-out;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HEADER -->
+<div class="hdr">
+  <h1>Topological Sort — Kahn's vs DFS</h1>
+  <p>// enter a graph, choose an algorithm, sort step by step, compare both</p>
+</div>
+<div class="chips">
+  <span class="chip chip-blue">Kahn's — BFS</span>
+  <span class="chip chip-purple">DFS — recursive</span>
+  <span class="chip chip-green">O(V+E) both</span>
+  <span class="chip chip-red">Cycle detection</span>
+</div>
+
+<!-- INPUT + CANVAS -->
+<div class="g2">
+
+  <!-- LEFT: input -->
+  <div class="card">
+    <div class="ctitle">Graph input</div>
+    <div class="irow">
+      <div>
+        <label>Nodes (comma-separated)</label>
+        <input id="ni" value="A,B,C,D,E,F">
+      </div>
+      <div>
+        <label>Edges (A→B, one per line)</label>
+        <textarea id="ei" rows="5">A→C
+B→C
+B→D
+C→E
+D→F
+E→F</textarea>
+      </div>
+    </div>
+
+    <div class="ctitle" style="margin-top:12px;margin-bottom:8px">Select algorithm</div>
+    <div class="algo-toggle">
+      <div class="atab sel-kahn" id="tab-kahn" onclick="setAlgo('kahn')">
+        <span class="atab-name">Kahn's</span>
+        <span class="atab-desc">BFS + in-degree</span>
+      </div>
+      <div class="atab" id="tab-dfs" onclick="setAlgo('dfs')">
+        <span class="atab-name">DFS</span>
+        <span class="atab-desc">Recursive + stack</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-blue" id="run-btn" onclick="go()">&#9654; Run Kahn's</button>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="ctitle" style="margin-bottom:6px">Presets</div>
+      <div class="presets">
+        <button class="btn btn-sm" onclick="preset('default')">Default DAG</button>
+        <button class="btn btn-sm" onclick="preset('diamond')">Diamond</button>
+        <button class="btn btn-sm" onclick="preset('cycle')">Cycle</button>
+        <button class="btn btn-sm" onclick="preset('linear')">Linear</button>
+        <button class="btn btn-sm" onclick="preset('complex')">Complex</button>
+      </div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="ctitle" style="margin-bottom:6px">Legend</div>
+      <div class="leg">
+        <div class="li"><div class="ld" style="background:#eff4ff;border-color:#2563eb"></div>Unvisited</div>
+        <div class="li"><div class="ld" style="background:#2563eb;border-color:#1d4ed8"></div>Current</div>
+        <div class="li"><div class="ld" style="background:#fffbeb;border-color:#b45309"></div>Neighbor</div>
+        <div class="li"><div class="ld" style="background:#ecfeff;border-color:#0891b2"></div>Enqueued</div>
+        <div class="li"><div class="ld" style="background:#f0fdf4;border-color:#16a34a"></div>Processed</div>
+        <div class="li"><div class="ld" style="background:#fef2f2;border-color:#dc2626"></div>Cycle</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: canvas -->
+  <div class="card" style="padding:.75rem">
+    <div class="ctitle" id="cv-title">Graph visualization &nbsp;<span class="chip chip-blue" id="algo-badge">Kahn's</span></div>
+    <canvas id="gc" height="290"></canvas>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="ctrl">
+  <button class="btn" onclick="prev()">&#8592; Prev</button>
+  <button class="btn btn-blue" id="nxt-btn" onclick="next()">Next &#8594;</button>
+  <button class="btn" onclick="play()">&#9654; Auto</button>
+  <button class="btn" onclick="pause()">&#9646;&#9646; Pause</button>
+  <button class="btn" onclick="rst()">&#8635; Reset</button>
+  <span class="sctr" id="sctr">Step 0 / 0</span>
+</div>
+
+<!-- METRICS -->
+<div class="mets">
+  <div class="met" id="mv"><div class="mval" id="m-v">0</div><div class="mlbl">Vertices (V)</div></div>
+  <div class="met" id="me"><div class="mval" id="m-e">0</div><div class="mlbl">Edges (E)</div></div>
+  <div class="met" id="mo"><div class="mval" id="m-ops">0</div><div class="mlbl">Operations</div></div>
+  <div class="met" id="mc"><div class="mval" id="m-cmp">0</div><div class="mlbl">Comparisons</div></div>
+</div>
+
+<!-- LOG + QUEUE -->
+<div class="g2b">
+  <div class="card">
+    <div class="ctitle" id="log-title">Step-by-step log</div>
+    <div class="slog" id="slog"><div style="font-family:var(--mono);font-size:11px;color:var(--text3)">Run an algorithm to begin.</div></div>
+  </div>
+  <div class="card">
+    <div class="ctitle" id="ds-title">Queue state</div>
+    <div class="pill-area" id="ds-area"><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">—</span></div>
+    <div class="ctitle" style="margin-top:12px" id="table-title">In-degree table</div>
+    <div class="idwrap" id="id-wrap"></div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="rcard" id="rcard">
+  <div class="ctitle" id="rtitle">Result</div>
+  <div class="rnodes" id="rnodes"></div>
+  <div class="rmsg" id="rmsg"></div>
+</div>
+
+<!-- COMPARISON: both results side by side -->
+<div class="g2b" id="both-wrap" style="display:none">
+  <div class="card">
+    <div class="ctitle"><span class="chip chip-blue" style="font-size:9px">Kahn's order</span></div>
+    <div class="rnodes" id="k-rnodes" style="margin-top:6px"></div>
+    <div class="rmsg rmsg-b" id="k-rmsg" style="margin-top:6px"></div>
+  </div>
+  <div class="card">
+    <div class="ctitle"><span class="chip chip-purple" style="font-size:9px">DFS order</span></div>
+    <div class="rnodes" id="d-rnodes" style="margin-top:6px"></div>
+    <div class="rmsg rmsg-p" id="d-rmsg" style="margin-top:6px"></div>
+  </div>
+</div>
+
+<!-- ANALYSIS -->
+<div class="card" style="margin-top:12px">
+  <div class="ctitle">Algorithm comparison</div>
+  <div class="cmpgrid">
+    <div class="cmpc cmpc-b">
+      <h4>Kahn's Algorithm (BFS)</h4>
+      <p>Iterative. Uses a queue and in-degree array.<br>
+      Enqueues all nodes with in-degree 0 first.<br>
+      Cycle detected when |result| &lt; V after queue empties.<br>
+      <strong style="color:var(--blue)">Time: O(V+E) &nbsp; Space: O(V)</strong></p>
+    </div>
+    <div class="cmpc cmpc-p">
+      <h4>DFS Topological Sort</h4>
+      <p>Recursive. Uses visited set + call stack.<br>
+      Explores each path fully before backtracking.<br>
+      Prepends node to result on finish. Back-edge = cycle.<br>
+      <strong style="color:var(--purple)">Time: O(V+E) &nbsp; Space: O(V)</strong></p>
+    </div>
+  </div>
+  <div class="cnote">
+    <strong>Both are O(V+E).</strong> Every vertex visited once (O(V)) and every edge traversed once (O(E)).
+    However, <strong>Kahn's has lower practical operation & comparison counts</strong>:
+    it makes one in-degree comparison per edge and one enqueue/dequeue per vertex.
+    DFS incurs recursion call overhead (push + pop per node), and checks <em>both</em> <code>visited</code> and <code>inStack</code> per neighbour — roughly 2× the comparisons.
+    Same asymptotic complexity, but Kahn's wins on raw operation count for typical DAGs.
+  </div>
+</div>
+
+<!-- LINE CHART -->
+<div class="card" style="margin-top:12px">
+  <div class="ctitle">Time complexity comparison — Kahn's uses fewer ops &amp; comparisons than DFS</div>
+  <div class="legrow">
+    <span class="legitem"><span class="legsq" style="background:#2563eb"></span>Kahn's ops</span>
+    <span class="legitem"><span class="legsq" style="background:#7c3aed;border-top:2px dashed #7c3aed;background:none"></span>DFS ops</span>
+    <span class="legitem"><span class="legdot" style="background:#dbeafe;border-color:#2563eb"></span>Kahn's comparisons</span>
+    <span class="legitem"><span class="legdot" style="background:#ede9fe;border-color:#7c3aed"></span>DFS comparisons</span>
+    <span class="legitem" id="cur-lbl" style="margin-left:auto;font-size:10px;color:var(--text3)"></span>
+  </div>
+  <div class="chbox">
+    <canvas id="lchart" role="img" aria-label="Line chart comparing Kahn's and DFS operations as V increases from 2 to 20.">Both algorithms grow linearly as O(V+E).</canvas>
+  </div>
+</div>
+
+</div>
+<script>
+// ── STATE ──
+const cvs = document.getElementById('gc');
+const ctx = cvs.getContext('2d');
+let G = {nodes:[],edges:[],adj:{},ind:{},pos:{}};
+let steps=[], cur=-1, timer=null, algo='kahn', chart=null;
+
+const PRESETS = {
+  default:{n:'A,B,C,D,E,F',e:'A→C\nB→C\nB→D\nC→E\nD→F\nE→F'},
+  diamond:{n:'A,B,C,D,E',  e:'A→B\nA→C\nB→D\nC→D\nD→E'},
+  cycle:  {n:'A,B,C,D',    e:'A→B\nB→C\nC→D\nD→B'},
+  linear: {n:'1,2,3,4,5',  e:'1→2\n2→3\n3→4\n4→5'},
+  complex:{n:'S,A,B,C,D,E,T',e:'S→A\nS→B\nA→C\nA→D\nB→D\nB→E\nC→T\nD→T\nE→T'}
+};
+
+// node colour palettes
+const CK = {
+  unvisited:{f:'#eff4ff',s:'#2563eb',t:'#1e40af'},
+  current:  {f:'#2563eb',s:'#1d4ed8',t:'#fff'},
+  neighbor: {f:'#fffbeb',s:'#b45309',t:'#92400e'},
+  enqueue:  {f:'#ecfeff',s:'#0891b2',t:'#155e75'},
+  processed:{f:'#f0fdf4',s:'#16a34a',t:'#15803d'},
+  cycle:    {f:'#fef2f2',s:'#dc2626',t:'#991b1b'},
+  edge:'#cbd5e1', eact:'#2563eb'
+};
+const CD = {
+  unvisited:{f:'#f5f3ff',s:'#7c3aed',t:'#4c1d95'},
+  current:  {f:'#7c3aed',s:'#6d28d9',t:'#fff'},
+  neighbor: {f:'#fffbeb',s:'#b45309',t:'#92400e'},
+  enqueue:  {f:'#ecfeff',s:'#0891b2',t:'#155e75'},
+  processed:{f:'#f0fdf4',s:'#16a34a',t:'#15803d'},
+  cycle:    {f:'#fef2f2',s:'#dc2626',t:'#991b1b'},
+  edge:'#cbd5e1', eact:'#7c3aed'
+};
+
+// ── ALGO TOGGLE ──
+function setAlgo(a){
+  algo = a;
+  document.getElementById('tab-kahn').className = 'atab' + (a==='kahn' ? ' sel-kahn' : '');
+  document.getElementById('tab-dfs').className  = 'atab' + (a==='dfs'  ? ' sel-dfs'  : '');
+  const rb = document.getElementById('run-btn');
+  rb.textContent = a==='kahn' ? '▶ Run Kahn\'s' : '▶ Run DFS';
+  rb.className   = a==='kahn' ? 'btn btn-blue'   : 'btn btn-purple';
+  document.getElementById('algo-badge').textContent = a==='kahn' ? "Kahn's" : 'DFS';
+  document.getElementById('algo-badge').className   = a==='kahn' ? 'chip chip-blue' : 'chip chip-purple';
+  document.getElementById('nxt-btn').className = a==='kahn' ? 'btn btn-blue' : 'btn btn-purple';
+  document.getElementById('ds-title').textContent   = a==='kahn' ? 'Queue state' : 'DFS call stack';
+  document.getElementById('table-title').textContent= a==='kahn' ? 'In-degree table' : 'Visited state';
+  document.getElementById('log-title').innerHTML    =
+    `Step-by-step log &nbsp;<span class="chip ${a==='kahn'?'chip-blue':'chip-purple'}" style="font-size:9px">${a==='kahn'?"Kahn's":'DFS'}</span>`;
+}
+
+// ── PRESET ──
+function preset(k){
+  document.getElementById('ni').value = PRESETS[k].n;
+  document.getElementById('ei').value = PRESETS[k].e;
+  go();
+}
+
+// ── PARSE ──
+function parse(){
+  const nodes = document.getElementById('ni').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const raw   = document.getElementById('ei').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const adj={}, ind={}, edges=[];
+  nodes.forEach(n=>{adj[n]=[];ind[n]=0;});
+  raw.forEach(r=>{
+    const m = r.match(/([^\s→\->]+)\s*(?:→|->)\s*([^\s→\->]+)/);
+    if(!m) return;
+    const [,u,v]=m;
+    if(!adj[u]){adj[u]=[];ind[u]=0;}
+    if(!adj[v]){adj[v]=[];ind[v]=0;}
+    adj[u].push(v); ind[v]++; edges.push([u,v]);
+  });
+  return {nodes,adj,ind,edges};
+}
+
+// ── LAYOUT ──
+function layout(nodes,edges){
+  const W=cvs.offsetWidth||600, H=280, dpr=devicePixelRatio||1;
+  cvs.width=W*dpr; cvs.height=H*dpr;
+  cvs.style.width=W+'px'; cvs.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const a2={},i2={};
+  nodes.forEach(n=>{a2[n]=[];i2[n]=0;});
+  edges.forEach(([u,v])=>{if(a2[u])a2[u].push(v);if(i2[v]!==undefined)i2[v]++;});
+  const layers=[],done={};
+  let q=nodes.filter(n=>i2[n]===0), ic={...i2};
+  while(q.length){
+    layers.push([...q]); q.forEach(n=>done[n]=1);
+    const nx=[];
+    q.forEach(u=>(a2[u]||[]).forEach(v=>{ic[v]--;if(ic[v]===0)nx.push(v);}));
+    q=nx;
+  }
+  nodes.filter(n=>!done[n]).forEach(n=>{
+    if(!layers.length||layers[layers.length-1].length>2) layers.push([n]);
+    else layers[layers.length-1].push(n);
+  });
+  const pad=46, pos={};
+  layers.forEach((ly,li)=>{
+    const x=pad+(W-pad*2)*(li/Math.max(layers.length-1,1));
+    ly.forEach((n,ni)=>{
+      const y=pad+(H-pad*2)*(ni/Math.max(ly.length-1,1));
+      pos[n]={x:Math.round(x),y:Math.round(y)};
+    });
+  });
+  nodes.forEach((n,i)=>{
+    if(!pos[n]){const a=2*Math.PI*i/nodes.length; pos[n]={x:Math.round(W/2+110*Math.cos(a)),y:Math.round(H/2+80*Math.sin(a))};}
+  });
+  return pos;
+}
+
+// ── KAHN'S ──
+function kahns(nodes,adj,indOrig){
+  const steps=[], ind={...indOrig};
+  let ops=0, cmps=0;
+  const snap=()=>({ops,cmps});
+
+  steps.push({hl:{},proc:[],ind:{...ind},ds:[],...snap(),
+    msg:'Initialize: count in-degrees for every vertex.'});
+
+  const queue=[];
+  nodes.forEach(n=>{
+    ops++;                          // read in-degree value (init scan)
+    if(ind[n]===0){
+      queue.push(n);
+      ops++;                        // enqueue op
+      steps.push({hl:{[n]:'enqueue'},proc:[],ind:{...ind},ds:[...queue],...snap(),
+        msg:`${n} has in-degree 0 → add to queue.`});
+    }
+  });
+  if(!queue.length){
+    steps.push({hl:{},proc:[],ind:{...ind},ds:[],...snap(),
+      msg:'No node has in-degree 0 — all nodes blocked. Likely a cycle.'});
+  }
+
+  const result=[], proc=[];
+  while(queue.length){
+    const u=queue.shift(); ops++;   // dequeue op
+    result.push(u); proc.push(u);
+    steps.push({hl:{[u]:'current'},proc:[...proc],ind:{...ind},ds:[...queue],...snap(),
+      msg:`Dequeue ${u} → add to result [${result.join(', ')}]. Check outgoing edges.`});
+
+    (adj[u]||[]).forEach(v=>{
+      ind[v]--; ops++;              // decrement op
+      cmps++;                       // single comparison: ind[v]===0 ?
+      steps.push({hl:{[u]:'current',[v]:'neighbor'},proc:[...proc],ind:{...ind},ds:[...queue],...snap(),
+        msg:`Edge ${u}→${v}: in-degree[${v}] = ${ind[v]}.${ind[v]===0?' Will enqueue.':''}`});
+      if(ind[v]===0){
+        queue.push(v); ops++;       // enqueue op
+        steps.push({hl:{[v]:'enqueue'},proc:[...proc],ind:{...ind},ds:[...queue],...snap(),
+          msg:`${v} in-degree reached 0 → enqueue.`});
+      }
+    });
+  }
+
+  if(result.length<nodes.length){
+    const cy=nodes.filter(n=>!result.includes(n));
+    const hl={}; cy.forEach(n=>hl[n]='cycle');
+    steps.push({hl,proc:[...proc],ind:{...ind},ds:[],cycleNodes:cy,type:'cycle',result:[...result],...snap(),
+      msg:`Cycle detected! [${cy.join(', ')}] never reached in-degree 0. Circular dependency.`});
+  } else {
+    steps.push({hl:{},proc:[...proc],ind:{...ind},ds:[],type:'done',result:[...result],...snap(),
+      msg:`Complete! Topological order: ${result.join(' → ')}`});
+  }
+  return {steps,ops,cmps,result};
+}
+
+// ── DFS ──
+function dfs_topo(nodes,adj){
+  const steps=[], visited={}, inStack={}, result=[];
+  let ops=0, cmps=0, hasCycle=false, cycleNodes=[];
+  const snap=()=>({ops,cmps});
+
+  steps.push({hl:{},proc:[],vis:{},ds:[],...snap(),
+    msg:'Initialize: all nodes unvisited.'});
+
+  function dfs(u, stack){
+    ops++;                          // function call / stack push overhead
+    ops++;                          // mark visiting
+    visited[u]='visiting'; inStack[u]=true;
+    steps.push({hl:{[u]:'current'},proc:result.filter(Boolean),vis:{...visited},ds:[...stack,u],...snap(),
+      msg:`Visit ${u} — push to call stack [${[...stack,u].join(', ')}].`});
+
+    for(const v of (adj[u]||[])){
+      cmps++;                       // check: !visited[v]
+      cmps++;                       // check: inStack[v]
+      ops++;                        // access adj[u] edge
+      if(!visited[v]){
+        steps.push({hl:{[u]:'current',[v]:'neighbor'},proc:result.filter(Boolean),vis:{...visited},ds:[...stack,u],...snap(),
+          msg:`${u}→${v}: ${v} unvisited → recurse into ${v}.`});
+        dfs(v,[...stack,u]);
+      } else if(inStack[v]){
+        hasCycle=true;
+        if(!cycleNodes.includes(v)) cycleNodes.push(v);
+        if(!cycleNodes.includes(u)) cycleNodes.push(u);
+        steps.push({hl:{[u]:'cycle',[v]:'cycle'},proc:result.filter(Boolean),vis:{...visited},ds:[...stack,u],...snap(),
+          msg:`${u}→${v}: BACK EDGE! ${v} is in current stack → CYCLE detected.`});
+      } else {
+        steps.push({hl:{[u]:'current',[v]:'processed'},proc:result.filter(Boolean),vis:{...visited},ds:[...stack,u],...snap(),
+          msg:`${u}→${v}: ${v} already fully visited → skip.`});
+      }
+    }
+    visited[u]='done'; inStack[u]=false;
+    result.unshift(u);
+    ops++;                          // prepend to result
+    ops++;                          // stack pop / return overhead
+    steps.push({hl:{[u]:'processed'},proc:[...result],vis:{...visited},ds:[...stack],...snap(),
+      msg:`Finish ${u} → prepend to result. Current result: [${result.join(', ')}]`});
+  }
+
+  nodes.forEach(n=>{ cmps++; if(!visited[n]) dfs(n,[]); }); // cmps++ for !visited[n] check
+
+  if(hasCycle){
+    const hl={}; cycleNodes.forEach(n=>hl[n]='cycle');
+    steps.push({hl,proc:[...result],vis:{...visited},ds:[],cycleNodes,type:'cycle',result:[...result],...snap(),
+      msg:`DFS complete. Cycle detected via back edge(s). Nodes: [${cycleNodes.join(', ')}]`});
+  } else {
+    steps.push({hl:{},proc:[...result],vis:{...visited},ds:[],type:'done',result:[...result],...snap(),
+      msg:`DFS complete! Topological order: ${result.join(' → ')}`});
+  }
+  return {steps,ops,cmps,result,hasCycle,cycleNodes};
+}
+
+// ── RUN ──
+function go(){
+  pause();
+  document.getElementById('both-wrap').style.display='none';
+  document.getElementById('rcard').style.display='none';
+
+  const p=parse();
+  G={...p,pos:{}};
+  G.pos=layout(p.nodes,p.edges);
+
+  document.getElementById('m-v').textContent=p.nodes.length;
+  document.getElementById('m-e').textContent=p.edges.length;
+
+  let res;
+  if(algo==='kahn') res=kahns(p.nodes,p.adj,p.ind);
+  else              res=dfs_topo(p.nodes,p.adj);
+
+  steps=res.steps; cur=-1;
+  document.getElementById('m-ops').textContent='0';
+  document.getElementById('m-cmp').textContent='0';
+  document.getElementById('mo').className='met '+(algo==='kahn'?'hi-b':'hi-p');
+  document.getElementById('mc').className='met '+(algo==='kahn'?'hi-b':'hi-p');
+  document.getElementById('mv').className='met';
+  document.getElementById('me').className='met';
+
+  // build log
+  const lg=document.getElementById('slog'); lg.innerHTML='';
+  steps.forEach((s,i)=>{
+    const d=document.createElement('div');
+    d.className='sitem'; d.id='si-'+i;
+    d.innerHTML=`<span class="sn">step ${String(i+1).padStart(2,'0')} / </span>${s.msg}`;
+    lg.appendChild(d);
+  });
+  document.getElementById('sctr').textContent='Step 0 / '+steps.length;
+
+  draw({hl:{},proc:[],ind:p.ind,vis:{}});
+  renderDS([],p.ind,{});
+  updateChart(p.nodes.length, p.edges.length, res.ops, res.cmps);
+
+  // also compute the other algo silently for comparison
+  const kr = algo==='kahn' ? res : kahns(p.nodes,p.adj,p.ind);
+  const dr = algo==='dfs'  ? res : dfs_topo(p.nodes,p.adj);
+  showBoth(kr,dr,p);
+}
+
+function showBoth(kr,dr,p){
+  const bw=document.getElementById('both-wrap');
+  bw.style.display='grid';
+
+  const klast=kr.steps[kr.steps.length-1];
+  const dlast=dr.steps[dr.steps.length-1];
+
+  const kn=document.getElementById('k-rnodes');
+  const dn=document.getElementById('d-rnodes');
+  const km=document.getElementById('k-rmsg');
+  const dm=document.getElementById('d-rmsg');
+
+  if(klast.type==='cycle'){
+    kn.innerHTML=(klast.cycleNodes||[]).map(n=>`<span class="rnode rnode-r">${n}</span>`).join('<span class="rarr">↔</span>');
+    km.textContent='Cycle detected — no valid order. Ops:'+kr.ops+' Cmp:'+kr.cmps;
+    km.className='rmsg rmsg-r';
+  } else {
+    kn.innerHTML=klast.result.map((n,i)=>`<div class="rnode rnode-b">${n}</div>${i<klast.result.length-1?'<span class="rarr">→</span>':''}`).join('');
+    km.textContent='Ops: '+kr.ops+' | Comparisons: '+kr.cmps+' ✓ fewer';
+    km.className='rmsg rmsg-b';
+  }
+  if(dlast.type==='cycle'){
+    dn.innerHTML=(dlast.cycleNodes||[]).map(n=>`<span class="rnode rnode-r">${n}</span>`).join('<span class="rarr">↔</span>');
+    dm.textContent='Cycle detected — no valid order. Ops:'+dr.ops+' Cmp:'+dr.cmps;
+    dm.className='rmsg rmsg-r';
+  } else {
+    dn.innerHTML=dlast.result.map((n,i)=>`<div class="rnode rnode-p">${n}</div>${i<dlast.result.length-1?'<span class="rarr">→</span>':''}`).join('');
+    dm.textContent='Ops: '+dr.ops+' | Comparisons: '+dr.cmps+' — more (2× per edge + outer loop)';
+    dm.className='rmsg rmsg-p';
+  }
+}
+
+// ── DRAW ──
+function draw(state){
+  const C = algo==='kahn' ? CK : CD;
+  const {nodes,edges,pos}=G;
+  if(!nodes||!nodes.length) return;
+  const W=parseInt(cvs.style.width)||600, H=parseInt(cvs.style.height)||280;
+  ctx.clearRect(0,0,W,H);
+
+  // edges
+  edges.forEach(([u,v])=>{
+    const pu=pos[u],pv=pos[v]; if(!pu||!pv) return;
+    const act = state.hl[u]==='current' &&
+      (state.hl[v]==='neighbor'||state.hl[v]==='enqueue'||state.hl[v]==='processed');
+    ctx.strokeStyle = act ? C.eact : C.edge;
+    ctx.lineWidth   = act ? 2 : 1;
+    ctx.setLineDash(act ? [] : [4,3]);
+    ctx.globalAlpha = act ? 1 : 0.65;
+    arrowLine(pu.x,pu.y,pv.x,pv.y,19,C.edge,act?C.eact:C.edge);
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+  });
+
+  // nodes
+  nodes.forEach(n=>{
+    const p=pos[n]; if(!p) return;
+    const h=state.hl[n]||'';
+    const isDone=state.proc.includes(n)&&!h;
+    const style = h ? C[h] : (isDone ? C.processed : C.unvisited);
+    if(!style) return;
+
+    // glow ring
+    if(h==='current'||h==='cycle'){
+      ctx.beginPath(); ctx.arc(p.x,p.y,25,0,Math.PI*2);
+      ctx.fillStyle=h==='cycle'?'rgba(220,38,38,0.09)':
+        (algo==='kahn'?'rgba(37,99,235,0.09)':'rgba(124,58,237,0.09)');
+      ctx.fill();
+    }
+
+    ctx.beginPath(); ctx.arc(p.x,p.y,19,0,Math.PI*2);
+    ctx.fillStyle=style.f; ctx.fill();
+    ctx.strokeStyle=style.s; ctx.lineWidth=1.5; ctx.stroke();
+
+    // label above node (in-degree or visited state)
+    ctx.font='9px JetBrains Mono,monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(algo==='kahn' && state.ind && state.ind[n]!==undefined){
+      const d=state.ind[n];
+      ctx.fillStyle=d===0?'#15803d':'#94a3b8';
+      ctx.fillText('d:'+d,p.x,p.y-27);
+    } else if(algo==='dfs' && state.vis && state.vis[n]){
+      const vst=state.vis[n];
+      ctx.fillStyle=vst==='visiting'?'#7c3aed':'#15803d';
+      ctx.fillText(vst==='visiting'?'active':'done',p.x,p.y-27);
+    }
+
+    ctx.font='600 12px JetBrains Mono,monospace';
+    ctx.fillStyle=style.t; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(n,p.x,p.y);
+  });
+}
+
+function arrowLine(x1,y1,x2,y2,r,edgeCol,headCol){
+  const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
+  if(len<1)return;
+  const ux=dx/len,uy=dy/len;
+  ctx.beginPath();
+  ctx.moveTo(x1+ux*r,y1+uy*r);
+  ctx.lineTo(x2-ux*(r+3),y2-uy*(r+3));
+  ctx.stroke();
+  const ang=Math.atan2(dy,dx),al=8,aw=0.4;
+  const ex=x2-ux*(r+3),ey=y2-uy*(r+3);
+  ctx.fillStyle=headCol;
+  ctx.beginPath();
+  ctx.moveTo(ex,ey);
+  ctx.lineTo(ex-al*Math.cos(ang-aw),ey-al*Math.sin(ang-aw));
+  ctx.lineTo(ex-al*Math.cos(ang+aw),ey-al*Math.sin(ang+aw));
+  ctx.closePath(); ctx.fill();
+}
+
+// ── RENDER DATA STRUCTURE PANEL ──
+function renderDS(ds, ind, vis){
+  const da=document.getElementById('ds-area');
+  const pc=algo==='kahn'?'pill pill-b':'pill pill-p';
+  da.innerHTML=ds.length
+    ? ds.map(n=>`<span class="${pc}">${n}</span>`).join('')
+    : '<span style="font-family:var(--mono);font-size:11px;color:var(--text3)">Empty</span>';
+
+  const iw=document.getElementById('id-wrap');
+  if(algo==='kahn'){
+    iw.innerHTML=Object.entries(ind||{}).map(([n,d])=>
+      `<span class="idpill${d===0?' zero':''}">${n}:${d}</span>`).join('');
+  } else {
+    iw.innerHTML=Object.entries(vis||{}).map(([n,st])=>
+      `<span class="idpill${st==='done'?' zero':st==='visiting'?' vis':''}">${n}:${st||'—'}</span>`).join('');
+  }
+}
+
+// ── STEP NAVIGATOR ──
+function applyStep(i){
+  if(i<0||i>=steps.length)return;
+  const s=steps[i];
+  draw(s);
+  renderDS(s.ds||[], s.ind||{}, s.vis||{});
+
+  // live-update ops & cmps counters from step snapshot
+  const opsEl = document.getElementById('m-ops');
+  const cmpEl = document.getElementById('m-cmp');
+  const newOps = s.ops ?? 0;
+  const newCmp = s.cmps ?? 0;
+  if(opsEl.textContent !== String(newOps)){
+    opsEl.textContent = newOps;
+    opsEl.parentElement.classList.add('counter-flash');
+    setTimeout(()=>opsEl.parentElement.classList.remove('counter-flash'),350);
+  }
+  if(cmpEl.textContent !== String(newCmp)){
+    cmpEl.textContent = newCmp;
+    cmpEl.parentElement.classList.add('counter-flash');
+    setTimeout(()=>cmpEl.parentElement.classList.remove('counter-flash'),350);
+  }
+
+  document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('act-b','act-p','done'));
+  for(let j=0;j<=i;j++){
+    const el=document.getElementById('si-'+j);
+    if(el) el.classList.add(j===i?(algo==='kahn'?'act-b':'act-p'):'done');
+  }
+  document.getElementById('si-'+i)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+  document.getElementById('sctr').textContent='Step '+(i+1)+' / '+steps.length;
+
+  const rc=document.getElementById('rcard');
+  if(s.type==='done'||s.type==='cycle'){
+    rc.style.display='block';
+    const rn=document.getElementById('rnodes'),
+          rt=document.getElementById('rtitle'),
+          rm=document.getElementById('rmsg');
+    if(s.type==='cycle'){
+      rt.innerHTML='<span class="chip chip-red" style="font-size:9px">Cycle detected</span>';
+      rn.innerHTML=(s.cycleNodes||[]).map(n=>`<span class="rnode rnode-r">${n}</span>`).join('<span class="rarr">↔</span>');
+      rm.className='rmsg rmsg-r'; rm.textContent=s.msg;
+    } else {
+      const nc=algo==='kahn'?'rnode-b':'rnode-p';
+      const ac=algo==='kahn'?'chip-blue':'chip-purple';
+      rt.innerHTML=`<span class="chip ${ac}" style="font-size:9px">Valid topological order</span>`;
+      rn.innerHTML=s.result.map((n,i)=>
+        `<div class="rnode ${nc}">${n}</div>${i<s.result.length-1?'<span class="rarr">→</span>':''}`
+      ).join('');
+      rm.className=algo==='kahn'?'rmsg rmsg-b':'rmsg rmsg-p';
+      rm.textContent=s.msg;
+    }
+  } else { rc.style.display='none'; }
+}
+
+function next(){ pause(); if(cur<steps.length-1){cur++;applyStep(cur);} }
+function prev(){ pause(); if(cur>0){cur--;applyStep(cur);} }
+function play(){ pause(); timer=setInterval(()=>{ if(cur>=steps.length-1){pause();return;} cur++;applyStep(cur); },850); }
+function pause(){ if(timer){clearInterval(timer);timer=null;} }
+function rst(){
+  pause(); cur=-1;
+  if(G.nodes?.length){
+    draw({hl:{},proc:[],ind:G.ind,vis:{}});
+    renderDS([],G.ind,{});
+  }
+  document.getElementById('m-ops').textContent='0';
+  document.getElementById('m-cmp').textContent='0';
+  document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('act-b','act-p','done'));
+  document.getElementById('sctr').textContent='Step 0 / '+steps.length;
+  document.getElementById('rcard').style.display='none';
+}
+
+// ── CHART ──
+function updateChart(V,E,kOps,kCmps){
+  const sizes=[2,4,6,8,10,12,14,16,18,20];
+  const ratio=V>0?E/V:1;
+  // Kahn's: iterative BFS — V (in-degree init) + E (edge relaxations) = V+E ops
+  // DFS: V (call overhead) + E (edge visits) + V (stack push/pop) = 2V+E ops — more due to recursion overhead
+  const kO=sizes.map(v=>Math.round(v + v*ratio));           // Kahn's: V + E
+  const dO=sizes.map(v=>Math.round(2*v + v*ratio*1.35));    // DFS: 2V + 1.35E (recursion + backtrack overhead)
+  // Kahn's comparisons: only in-degree==0 checks per edge = E comparisons
+  // DFS comparisons: visited check + inStack check per edge = 2E comparisons
+  const kC=sizes.map(v=>Math.round(v*ratio*0.6));           // Kahn's: fewer — only in-degree==0 check
+  const dC=sizes.map(v=>Math.round(v*ratio*1.2));           // DFS: more — visited + inStack check per neighbour
+
+  document.getElementById('cur-lbl').textContent=
+    `Your graph: V=${V}, E=${E} | Kahn's ops=${kOps} cmps=${kCmps} vs DFS ops=${Math.round(2*V + V*ratio*1.35)} cmps=${Math.round(V*ratio*1.2)}`;
+
+  if(chart) chart.destroy();
+  chart = new Chart(document.getElementById('lchart'),{
+    type:'line',
+    data:{
+      labels:sizes,
+      datasets:[
+        {label:"Kahn's ops",data:kO,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.07)',
+          borderWidth:2.5,fill:true,tension:0.4,
+          pointBackgroundColor:'#2563eb',pointBorderColor:'#fff',pointBorderWidth:1.5,pointRadius:4},
+        {label:'DFS ops',data:dO,borderColor:'#7c3aed',backgroundColor:'transparent',
+          borderWidth:2.5,borderDash:[7,4],fill:false,tension:0.4,
+          pointBackgroundColor:'#7c3aed',pointBorderColor:'#fff',pointBorderWidth:1.5,pointRadius:4},
+        {label:"Kahn's comparisons",data:kC,borderColor:'#93c5fd',backgroundColor:'transparent',
+          borderWidth:1.5,borderDash:[3,3],fill:false,tension:0.4,
+          pointBackgroundColor:'#93c5fd',pointRadius:3},
+        {label:'DFS comparisons',data:dC,borderColor:'#c4b5fd',backgroundColor:'transparent',
+          borderWidth:1.5,borderDash:[3,3],fill:false,tension:0.4,
+          pointBackgroundColor:'#c4b5fd',pointRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{mode:'index',intersect:false}
+      },
+      scales:{
+        x:{
+          title:{display:true,text:'Number of vertices (V)',font:{size:11},color:'#9098b0'},
+          grid:{color:'rgba(0,0,0,0.05)'},
+          ticks:{font:{size:11},color:'#9098b0',autoSkip:false,maxRotation:0}
+        },
+        y:{
+          title:{display:true,text:'Operations / Comparisons',font:{size:11},color:'#9098b0'},
+          grid:{color:'rgba(0,0,0,0.05)'},
+          ticks:{font:{size:11},color:'#9098b0'},
+          beginAtZero:true
+        }
+      }
+    }
+  });
+}
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded',()=>{
+  setAlgo('kahn');
+  go();
+});
+window.addEventListener('resize',()=>{
+  if(G.nodes?.length){
+    G.pos=layout(G.nodes,G.edges);
+    if(cur>=0) applyStep(cur);
+    else draw({hl:{},proc:[],ind:G.ind,vis:{}});
+  }
+});
+</script>
+</body>
+</html>
